@@ -23,6 +23,8 @@ for k, v in {"timestamp": None, "json_path": None}.items():
 # --- Firestore 초기화 (Streamlit Secrets 기반) ---
 if "firebase_app" not in st.session_state:
     try:
+        # 이 부분을 try 블록 안에 넣고, print()로 확인
+        st.info("Firebase 초기화 시도...")
         firebase_config = {
             "type": st.secrets["firebase"]["type"],
             "project_id": st.secrets["firebase"]["project_id"],
@@ -36,8 +38,11 @@ if "firebase_app" not in st.session_state:
             "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
             "universe_domain": st.secrets["firebase"]["universe_domain"]
         }
+        st.info(f"Firebase Config - project_id: {firebase_config['project_id']}, client_email: {firebase_config['client_email']}")
+        st.info(f"Private Key starts with: {firebase_config['private_key'][:50]}... and ends with: {firebase_config['private_key'][-50:]}")
 
-        if not firebase_admin._apps:  # ✅ 중복 방지
+
+        if not firebase_admin._apps: 
             cred = credentials.Certificate(firebase_config)
             firebase_admin.initialize_app(cred)
 
