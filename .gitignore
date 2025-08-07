@@ -1,3 +1,18 @@
-venv/ 
-__pycache__/ 
-*.pyc 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual env
+.venv/
+venv/
+
+# VSCode
+.vscode/
+
+# Firebase key
+firebase_key.json  ← 🔒 비공개 키 절대 업로드 금지!!
+
+# PDF, JSON 결과물
+temp_*.pdf
+output/json/
