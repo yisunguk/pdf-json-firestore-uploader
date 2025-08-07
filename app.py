@@ -20,20 +20,24 @@ for k, v in {"timestamp": None, "json_path": None}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# --- Firestore 초기화 (로컬 + 배포 환경 지원) ---
+# --- Firestore 초기화 (Streamlit Secrets 기반) ---
 if "firebase_app" not in st.session_state:
     try:
-        if os.path.exists(os.path.join(BASE_DIR, "firebase_key.json")):
-            # 로컬 개발 환경 (firebase_key.json 존재)
-            key_path = os.path.join(BASE_DIR, "firebase_key.json")
-            cred = credentials.Certificate(key_path)
-        else:
-            # 배포 환경 (Streamlit secrets 사용)
-            firebase_key_dict = dict(st.secrets["firebase_key"])
-            with open("firebase_key_temp.json", "w") as f:
-                json.dump(firebase_key_dict, f)
-            cred = credentials.Certificate("firebase_key_temp.json")
+        firebase_config = {
+            "type": st.secrets["firebase"]["type"],
+            "project_id": st.secrets["firebase"]["project_id"],
+            "private_key_id": st.secrets["firebase"]["private_key_id"],
+            "private_key": st.secrets["firebase"]["private_key"].replace('\\n', '\n'),
+            "client_email": st.secrets["firebase"]["client_email"],
+            "client_id": st.secrets["firebase"]["client_id"],
+            "auth_uri": st.secrets["firebase"]["auth_uri"],
+            "token_uri": st.secrets["firebase"]["token_uri"],
+            "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+            "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
+            "universe_domain": st.secrets["firebase"]["universe_domain"]
+        }
 
+        cred = credentials.Certificate(firebase_config)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         st.session_state.firebase_app = True
