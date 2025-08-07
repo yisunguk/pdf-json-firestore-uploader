@@ -20,11 +20,20 @@ for k, v in {"timestamp": None, "json_path": None}.items():
     if k not in st.session_state:
         st.session_state[k] = v
 
-# --- Firestore 초기화 ---
+# --- Firestore 초기화 (로컬 + 배포 환경 지원) ---
 if "firebase_app" not in st.session_state:
     try:
-        key_path = os.path.join(BASE_DIR, "firebase_key.json")  # 🔒 경로를 반드시 정확히 지정
-        cred = credentials.Certificate(key_path)
+        if os.path.exists(os.path.join(BASE_DIR, "firebase_key.json")):
+            # 로컬 개발 환경 (firebase_key.json 존재)
+            key_path = os.path.join(BASE_DIR, "firebase_key.json")
+            cred = credentials.Certificate(key_path)
+        else:
+            # 배포 환경 (Streamlit secrets 사용)
+            firebase_key_dict = dict(st.secrets["firebase_key"])
+            with open("firebase_key_temp.json", "w") as f:
+                json.dump(firebase_key_dict, f)
+            cred = credentials.Certificate("firebase_key_temp.json")
+
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         st.session_state.firebase_app = True
