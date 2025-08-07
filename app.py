@@ -23,21 +23,8 @@ for k, v in {"timestamp": None, "json_path": None}.items():
 # --- Firestore 초기화 ---
 if "firebase_app" not in st.session_state:
     try:
-        firebase_config = st.secrets["firebase"]
-        firebase_dict = {
-            "type": firebase_config["type"],
-            "project_id": firebase_config["project_id"],
-            "private_key_id": firebase_config["private_key_id"],
-            "private_key": firebase_config["private_key"].replace("\\n", "\n"),  # 중요
-            "client_email": firebase_config["client_email"],
-            "client_id": firebase_config["client_id"],
-            "auth_uri": firebase_config["auth_uri"],
-            "token_uri": firebase_config["token_uri"],
-            "auth_provider_x509_cert_url": firebase_config["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": firebase_config["client_x509_cert_url"],
-            "universe_domain": firebase_config.get("universe_domain", "googleapis.com")
-        }
-        cred = credentials.Certificate(firebase_dict)
+        key_path = os.path.join(BASE_DIR, "firebase_key.json")  # 🔒 경로를 반드시 정확히 지정
+        cred = credentials.Certificate(key_path)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         st.session_state.firebase_app = True
