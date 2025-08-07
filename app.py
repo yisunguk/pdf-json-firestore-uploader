@@ -37,15 +37,19 @@ if "firebase_app" not in st.session_state:
             "universe_domain": st.secrets["firebase"]["universe_domain"]
         }
 
-        cred = credentials.Certificate(firebase_config)
-        firebase_admin.initialize_app(cred)
+        if not firebase_admin._apps:  # ✅ 중복 방지
+            cred = credentials.Certificate(firebase_config)
+            firebase_admin.initialize_app(cred)
+
         db = firestore.client()
         st.session_state.firebase_app = True
+
     except Exception as e:
         st.error(f"❌ Firebase 초기화 실패: {e}")
         db = None
 else:
     db = firestore.client()
+
 
 # --- 파일 업로드 및 추출 옵션 ---
 uploaded_file = st.file_uploader("PDF 파일을 업로드하세요", type=["pdf"])
