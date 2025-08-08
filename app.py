@@ -134,3 +134,34 @@ if st.session_state.json_path and db:
 
         except Exception as e:
             st.error(f"Firestore 저장 실패: {e}")
+# --- Firestore 문서 목록 검색 및 삭제 ---
+if db:
+    st.markdown("---")
+    st.subheader("📂 Firestore 문서 검색 및 삭제")
+
+    try:
+        # 문서 리스트 불러오기
+        docs = db.collection("pdf_texts").stream()
+        doc_ids = [doc.id for doc in docs]
+
+        if doc_ids:
+            selected_doc = st.selectbox("🔎 조회할 문서를 선택하세요", doc_ids)
+
+            # 문서 조회
+            if selected_doc:
+                doc_ref = db.collection("pdf_texts").document(selected_doc)
+                doc_data = doc_ref.get().to_dict()
+
+                if doc_data:
+                    st.success(f"✅ 문서 `{selected_doc}` 불러오기 완료!")
+                    st.json(doc_data)
+
+                    # 삭제 버튼
+                    if st.button("🗑 문서 삭제"):
+                        doc_ref.delete()
+                        st.warning(f"❌ 문서 `{selected_doc}` 삭제 완료. 페이지를 새로고침 해주세요.")
+        else:
+            st.info("Firestore에 저장된 문서가 없습니다.")
+
+    except Exception as e:
+        st.error(f"문서 불러오기 실패: {e}")
