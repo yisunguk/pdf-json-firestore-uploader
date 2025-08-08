@@ -11,7 +11,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 # --- 기본 설정 ---
-st.set_page_config(page_title="PDF 텍스트 추출기", layout="centered")
+st.set_page_config(page_title="PDF 텍스트 추출기", layout="wide")
 st.title("📄 PDF 텍스트 추출기 (페이지별 JSON 변환 + Firestore 저장)")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -110,9 +110,9 @@ if st.session_state.json_path and db:
         except Exception as e:
             st.error(f"Firestore 저장 실패: {e}")
 
-# --- Firestore 문서 테이블 (검색/삭제/저장) ---
+# --- Firestore 문서 테이블 ---
 st.markdown("---")
-st.subheader("📂 Firestore 문서 테이블 (문서 삭제 / 저장 함께)")
+st.subheader("📂 문서 테이블")
 
 try:
     docs = db.collection("pdf_texts").stream()
@@ -134,17 +134,45 @@ try:
         })
 
     if doc_list:
+        # 테이블 헤더 출력
+        st.markdown(
+            """
+            <style>
+                .header-row {
+                    display: flex;
+                    font-weight: bold;
+                    padding: 0.25rem 0;
+                    border-bottom: 1px solid #ccc;
+                }
+                .header-row > div {
+                    flex: 1;
+                    text-align: center;
+                }
+            </style>
+            <div class='header-row'>
+                <div style='flex:0.5'>선택</div>
+                <div style='flex:0.5'>#</div>
+                <div style='flex:1'>글자 수</div>
+                <div style='flex:2'>문서 제목</div>
+                <div style='flex:3'>미리보기</div>
+                <div style='flex:1'>삭제</div>
+                <div style='flex:1'>저장</div>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
         for doc in doc_list:
             col1, col2, col3, col4, col5, col6, col7 = st.columns([0.5, 0.5, 1, 2, 3, 1, 1])
 
             with col1:
                 st.checkbox("", key=f"chk_{doc['doc_id']}")
             with col2:
-                st.write(doc["index"])
+                st.markdown(f"<span style='font-size:14px;'>{doc['index']}</span>", unsafe_allow_html=True)
             with col3:
-                st.write(doc["char_count"])
+                st.markdown(f"<span style='font-size:14px;'>{doc['char_count']}</span>", unsafe_allow_html=True)
             with col4:
-                st.write(doc["doc_id"])
+                st.markdown(f"<span style='font-size:14px;'>{doc['doc_id']}</span>", unsafe_allow_html=True)
             with col5:
                 with st.expander("📄 문서 미리보기"):
                     for page in doc["full_data"].get("pages", []):
