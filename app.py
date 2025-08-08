@@ -11,7 +11,7 @@ from firebase_admin import credentials, firestore
 
 # --- 기본 설정 ---
 st.set_page_config(page_title="PDF 텍스트 추출기", layout="centered")
-st.title("📄 PDF 텍스트 추출기 (페이지별 JSON 변환 + Firestore 저장)")
+st.title("\ud83d\udcc4 PDF \ud14d\uc2a4\ud2b8 \ucc3e\uae30 (\ud398\uc774\uc9c0\ubcc4 JSON \ubcc0\ud654 + Firestore \uc800\uc7a5)")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -23,26 +23,13 @@ for k, v in {"timestamp": None, "json_path": None}.items():
 # --- Firestore 초기화 (Streamlit Secrets 기반) ---
 if "firebase_app" not in st.session_state:
     try:
-        # 이 부분을 try 블록 안에 넣고, print()로 확인
-        st.info("Firebase 초기화 시도...")
+        st.info("Firebase \ucd08\uae30\ud654 \uc2dc\ub3c4...")
         firebase_config = {
-            "type": st.secrets["firebase"]["type"],
-            "project_id": st.secrets["firebase"]["project_id"],
-            "private_key_id": st.secrets["firebase"]["private_key_id"],
-            "private_key": st.secrets["firebase"]["private_key"].replace('\\n', '\n'),
-            "client_email": st.secrets["firebase"]["client_email"],
-            "client_id": st.secrets["firebase"]["client_id"],
-            "auth_uri": st.secrets["firebase"]["auth_uri"],
-            "token_uri": st.secrets["firebase"]["token_uri"],
-            "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
-            "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
-            "universe_domain": st.secrets["firebase"]["universe_domain"]
+            k: st.secrets["firebase"][k].replace('\\n', '\n') if k == "private_key" else st.secrets["firebase"][k]
+            for k in st.secrets["firebase"]
         }
-        st.info(f"Firebase Config - project_id: {firebase_config['project_id']}, client_email: {firebase_config['client_email']}")
-        st.info(f"Private Key starts with: {firebase_config['private_key'][:50]}... and ends with: {firebase_config['private_key'][-50:]}")
 
-
-        if not firebase_admin._apps: 
+        if not firebase_admin._apps:
             cred = credentials.Certificate(firebase_config)
             firebase_admin.initialize_app(cred)
 
@@ -50,118 +37,130 @@ if "firebase_app" not in st.session_state:
         st.session_state.firebase_app = True
 
     except Exception as e:
-        st.error(f"❌ Firebase 초기화 실패: {e}")
+        st.error(f"\u274c Firebase \ucd08\uae30\ud654 \uc2e4\ud328: {e}")
         db = None
 else:
     db = firestore.client()
 
+# --- PDF \ud30c\uc77c \uc5c5\ub85c\ub4dc & \ucc3e\uae30 ---
+uploaded_file = st.file_uploader("PDF \ud30c\uc77c\uc744 \uc5c5\ub85c\ub4dc\ud558\uc138\uc694", type=["pdf"])
+extract_method = st.selectbox("\ud14d\uc2a4\ud2b8 \ucc3e\uae30 \ubc29\uc2dd \uc120\ud0dd", ["PyMuPDF", "pdfplumber"])
 
-# --- 파일 업로드 및 추출 옵션 ---
-uploaded_file = st.file_uploader("PDF 파일을 업로드하세요", type=["pdf"])
-extract_method = st.selectbox("텍스트 추출 방식 선택", ["PyMuPDF", "pdfplumber"])
-
-# --- 텍스트 추출 실행 ---
 if uploaded_file:
     if not st.session_state.timestamp:
         st.session_state.timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
 
     filename_base = os.path.splitext(uploaded_file.name)[0]
     temp_pdf = os.path.join(BASE_DIR, f"temp_{st.session_state.timestamp}.pdf")
-    json_path = os.path.join(BASE_DIR, "output", "json",
-                             f"{filename_base}_text_result_{st.session_state.timestamp}.json")
+    json_path = os.path.join(BASE_DIR, "output", "json", f"{filename_base}_text_result_{st.session_state.timestamp}.json")
     os.makedirs(os.path.dirname(json_path), exist_ok=True)
 
     with open(temp_pdf, "wb") as f:
         f.write(uploaded_file.getbuffer())
 
-    if st.button("🚀 텍스트 추출 실행"):
+    if st.button("\ud83d\ude80 \ud14d\uc2a4\ud2b8 \ucc3e\uae30 \uc2e4\ud589"):
         try:
-            st.info("텍스트 추출 중…")
-
-            result = {
-                "pdf_path": temp_pdf,
-                "pages": []
-            }
+            st.info("\ud14d\uc2a4\ud2b8 \ucc3e\uae30 \uc911...")
+            result = {"pdf_path": temp_pdf, "pages": []}
 
             if extract_method == "PyMuPDF":
-                doc = fitz.open(temp_pdf)
-                for i, page in enumerate(doc):
-                    text = page.get_text().strip()
-                    result["pages"].append({
-                        "page_number": i + 1,
-                        "char_count": len(text),
-                        "text": text
-                    })
-                doc.close()
-
-            else:  # pdfplumber
-                doc = pdfplumber.open(temp_pdf)
-                for i, page in enumerate(doc.pages):
-                    text = page.extract_text() or ""
-                    result["pages"].append({
-                        "page_number": i + 1,
-                        "char_count": len(text),
-                        "text": text
-                    })
-                doc.close()
+                with fitz.open(temp_pdf) as doc:
+                    for i, page in enumerate(doc):
+                        text = page.get_text().strip()
+                        result["pages"].append({
+                            "page_number": i + 1,
+                            "char_count": len(text),
+                            "text": text
+                        })
+            else:
+                with pdfplumber.open(temp_pdf) as doc:
+                    for i, page in enumerate(doc.pages):
+                        text = page.extract_text() or ""
+                        result["pages"].append({
+                            "page_number": i + 1,
+                            "char_count": len(text),
+                            "text": text
+                        })
 
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(result, f, ensure_ascii=False, indent=2)
 
-            st.success("✅ 완료! 결과 JSON 생성됨.")
+            st.success("\u2705 \uac00\ub2a5! JSON \uacb0\uacfc \uc0dd\uc131\ud568.")
             with open(json_path, "rb") as f:
-                st.download_button("📥 결과 JSON 다운로드", f, file_name=os.path.basename(json_path),
-                                   mime="application/json")
+                st.download_button("\ud83d\udcc5 JSON \ub2e4\uc6b4\ub85c\ub4dc", f, file_name=os.path.basename(json_path), mime="application/json")
 
             st.session_state.json_path = json_path
 
         except Exception as e:
-            st.error(f"❌ 실패: {e}")
+            st.error(f"\u274c \uc2e4\ud328: {e}")
 
-# --- Firestore 저장 기능 ---
+# --- Firestore\uc5d0 JSON \uc800\uc7a5 ---
 if st.session_state.json_path and db:
-    st.info("💾 JSON을 Firestore에 저장할 수 있습니다.")
-
-    if st.button("📤 Firestore에 저장"):
+    st.info("\ud83d\udcc2 Firestore\uc5d0 \uc800\uc7a5\ud560 \uc218 \uc788\uc2b5\ub2c8\ub2e4.")
+    if st.button("\ud83d\udcc4 Firestore\uc5d0 \uc800\uc7a5"):
         try:
             with open(st.session_state.json_path, "r", encoding="utf-8") as f:
                 json_data = json.load(f)
 
             doc_name = f"{filename_base}_{st.session_state.timestamp}"
             db.collection("pdf_texts").document(doc_name).set(json_data)
-
-            st.success(f"✅ Firestore 저장 완료: {doc_name}")
+            st.success(f"\u2705 Firestore \uc800\uc7a5 \uc644\ub8cc: {doc_name}")
 
         except Exception as e:
-            st.error(f"Firestore 저장 실패: {e}")
-# --- Firestore 문서 목록 검색 및 삭제 ---
-if db:
-    st.markdown("---")
-    st.subheader("📂 Firestore 문서 검색 및 삭제")
+            st.error(f"Firestore \uc800\uc7a5 \uc2e4\ud328: {e}")
 
-    try:
-        # 문서 리스트 불러오기
-        docs = db.collection("pdf_texts").stream()
-        doc_ids = [doc.id for doc in docs]
+# --- Firestore\uc758 \ubb38\uc11c\ub4f1 \ucd9c\ub825/\uc0ad\uc81c/\uc800\uc7a5 ---
+import pandas as pd
 
-        if doc_ids:
-            selected_doc = st.selectbox("🔎 조회할 문서를 선택하세요", doc_ids)
+st.markdown("---")
+st.subheader("\ud83d\udcc2 Firestore \ubb38\uc11c \ud14c\uc774\ube14 (\ubb38\uc11c \uc0ad\uc81c / \uc800\uc7a5 \ud568\uaed8)")
 
-            # 문서 조회
-            if selected_doc:
-                doc_ref = db.collection("pdf_texts").document(selected_doc)
-                doc_data = doc_ref.get().to_dict()
+try:
+    docs = db.collection("pdf_texts").stream()
+    doc_list = []
 
-                if doc_data:
-                    st.success(f"✅ 문서 `{selected_doc}` 불러오기 완료!")
-                    st.json(doc_data)
+    for i, doc in enumerate(docs, start=1):
+        doc_id = doc.id
+        data = doc.to_dict()
+        total_chars = sum(p.get("char_count", 0) for p in data.get("pages", []))
+        first_text = data["pages"][0]["text"] if data.get("pages") else ""
+        preview = first_text[:100] + "..." if len(first_text) > 100 else first_text
 
-                    # 삭제 버튼
-                    if st.button("🗑 문서 삭제"):
-                        doc_ref.delete()
-                        st.warning(f"❌ 문서 `{selected_doc}` 삭제 완료. 페이지를 새로고침 해주세요.")
-        else:
-            st.info("Firestore에 저장된 문서가 없습니다.")
+        doc_list.append({
+            "index": i,
+            "doc_id": doc_id,
+            "char_count": total_chars,
+            "preview": preview,
+            "full_data": data
+        })
 
-    except Exception as e:
-        st.error(f"문서 불러오기 실패: {e}")
+    if doc_list:
+        for doc in doc_list:
+            col1, col2, col3, col4, col5, col6, col7 = st.columns([0.5, 0.5, 1, 2, 3, 1, 1])
+
+            with col1:
+                st.checkbox("", key=f"chk_{doc['doc_id']}")
+            with col2:
+                st.write(doc["index"])
+            with col3:
+                st.write(doc["char_count"])
+            with col4:
+                st.write(doc["doc_id"])
+            with col5:
+                with st.expander("\ud83d\udcc4 \ubb38\uc11c \ubbf8\ub9ac\ubcf4\uae30"):
+                    for page in doc["full_data"].get("pages", []):
+                        st.markdown(f"**\ud398\uc774\uc9c0 {page['page_number']}**")
+                        st.write(page["text"])
+            with col6:
+                if st.button("\ud83d\uddd1 \uc0ad\uc81c", key=f"del_{doc['doc_id']}"):
+                    db.collection("pdf_texts").document(doc["doc_id"]).delete()
+                    st.warning(f"\u274c `{doc['doc_id']}` \uc0ad\uc81c \uc644\ub8cc (\uc0c8\ub85c\uace0\uce68 \ud544\uc694)")
+            with col7:
+                json_data = json.dumps(doc["full_data"], ensure_ascii=False, indent=2)
+                st.download_button("\ud83d\udcc4 \uc800\uc7a5", data=json_data, file_name=f"{doc['doc_id']}.json", mime="application/json", key=f"save_{doc['doc_id']}")
+
+    else:
+        st.info("Firestore\uc5d0 \uc800\uc7a5\ub41c \ubb38\uc11c\uac00 \uc5c6\uc2b5\ub2c8\ub2e4.")
+
+except Exception as e:
+    st.error(f"\ubb38\uc11c \ub85c\ub529 \uc2e4\ud328: {e}")
